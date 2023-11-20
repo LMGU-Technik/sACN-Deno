@@ -1,0 +1,6 @@
+{
+    "tasks": {
+        "run": "deno run -A --unstable --unstable-hmr src/receiver.test.ts",
+        "run-no-hmr": "deno run -A --unstable src/receiver.test.ts"
+    }
+}
