@@ -1,7 +1,9 @@
-import { sACNReceiver } from "./receiver.ts";
+import { Receiver } from "./receiver.ts";
 
 async function main() {
-    for await (const a of sACNReceiver(1)) {
+    const receiver = new Receiver();
+    receiver.addUniverse(1);
+    for await (const a of receiver) {
         console.log(a);
     }
 }

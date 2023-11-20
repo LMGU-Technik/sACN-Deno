@@ -38,18 +38,21 @@ export function parsePacket(packet: Uint8Array): Packet {
     const cid = new Uint8Array(packet.buffer, 22, 16);
     constantField(dv.getUint32(40), FrameVector.DATA, "Frame Vector");
     const sourceName = new Uint8Array(packet.buffer, 44, 64);
-    const sourceLabel = new TextDecoder().decode(sourceName);
+    const sourceLabel = new TextDecoder()
+        .decode(
+            sourceName.slice(0,
+                sourceName.findLastIndex(_ => _ !== 0) + 1)); // last non-null character
     const priority = dv.getUint8(108);
-    const sync = dv.getUint16(109);
+    // const sync = dv.getUint16(109);
     const sequence = dv.getUint8(111);
-    const optFlags = dv.getUint8(112);
+    // const optFlags = dv.getUint8(112);
     const universe = dv.getUint16(113);
     constantField(dv.getUint8(117), DmpVector.DATA, "DMP Vector");
     constantField(dv.getUint8(118), 0xa1, "Address Type");
     constantField(dv.getUint16(119), 0x0000, "First prop offset");
     constantField(dv.getUint16(121), 0x0001, "Data size");
     const valueCount = dv.getUint16(123);
-    const data = new Uint8Array(packet.buffer, 125, 513);
+    const data = new Uint8Array(packet.buffer, 125, valueCount);
 
     return {
         cid,
