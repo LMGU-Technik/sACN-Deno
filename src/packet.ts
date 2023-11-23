@@ -19,7 +19,7 @@ function constantField(value: number, expected: number, id: string) {
     }
 }
 
-export function flagsAndLength(bytes: number) {
+export function parseFlagsAndLength(bytes: number) {
     const length = bytes & 0b1111_1111_1111;
     const flags = (bytes >> 12) & 0b1111;
     constantField(flags, 0x7, "Flags");
@@ -62,4 +62,38 @@ export function parsePacket(packet: Uint8Array): Packet {
         data,
         sourceLabel,
     };
+}
+
+export function buildFlagsAndLength(pos: number, packet: {
+    data: Uint8Array;
+}) {
+    return ((125 + packet.data.byteLength) - pos) & 0b1111_1111_1111 | (0x7 << 12);
+}
+
+export function buildPacket(packet: Packet) {
+    const res = new ArrayBuffer(638);
+    const dv = new DataView(res);
+    dv.setUint16(0, 0x0010);
+    dv.setUint16(2, 0x0000);
+    new Uint8Array(res, 4, 12).set(ACN_PID);
+    dv.setUint16(16, buildFlagsAndLength(16, packet));
+    dv.setUint32(18, RootVector.DATA);
+    new Uint8Array(res, 22, 16).set(packet.cid);
+    dv.setUint16(38, buildFlagsAndLength(38, packet));
+    dv.setUint32(40, FrameVector.DATA);
+    new Uint8Array(res, 44, 64).set(new TextEncoder().encode(packet.sourceLabel));
+    dv.setUint8(108, packet.priority);
+    // 109 sync
+    dv.setUint8(111, packet.sequence);
+    // 112" optflags
+    dv.setUint16(113, packet.universe);
+
+    dv.setUint16(115, buildFlagsAndLength(115, packet));
+    dv.setUint8(117, DmpVector.DATA);
+    dv.setUint8(118, 0xa1);
+    dv.setUint16(119, 0x0000);
+    dv.setUint16(121, 0x0001);
+    dv.setUint16(123, packet.data.byteLength);
+    new Uint8Array(res, 125).set(packet.data);
+    return new Uint8Array(res);
 }
