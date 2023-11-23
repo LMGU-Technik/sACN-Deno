@@ -1,4 +1,4 @@
-export const ACN_PID = Buffer.from([
+export const ACN_PID = new Uint8Array([
   0x41, // A
   0x53, // S
   0x43, // C
@@ -18,7 +18,7 @@ export const ACN_PID = Buffer.from([
  * of equipment should maintain the same CID for its entire lifetime"
  * - E1.31
  */
-export const DEFAULT_CID = Buffer.from([
+export const DEFAULT_CID = new Uint8Array([
   0x6b, 0x79, 0x6c, 0x65, 0x48, 0x65, 0x6e, 0x73, 0x65, 0x6c, 0x44, 0x65, 0x66,
   0x61, 0x75, 0x6c,
 ]);

@@ -1,114 +1,238 @@
-import { Socket, createSocket } from 'dgram';
-import { EventEmitter } from 'events';
-import { AssertionError } from 'assert';
+/* 
+* LMGU-Technik sACN-Deno
 
-import { Packet } from './packet';
-import { multicastGroup } from './util';
+* Copyright (C) 2023 Hans Schallmoser
 
-export interface ReceiverProps {
-  universes?: number[];
-  port?: number;
-  iface?: string; // local ip address of network inteface to use
-  reuseAddr?: boolean;
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* (at your option) any later version.
+
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+
+* You should have received a copy of the GNU General Public License
+* along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+
+import { Packet, parsePacket } from './packet.ts';
+import { multicastGroup } from '../lib/util.ts';
+import { bufferEqual } from "../lib/util.ts";
+
+export interface ReceiverOptions {
+    // defaults to 5568
+    readonly port: number;
+    // network interface to listen on // defaults to all (0.0.0.0)
+    readonly iface: string;
+    // drop all non-zero start code packets // defaults to true
+    readonly dmxAOnly: boolean;
 }
 
-export declare interface Receiver {
-  on(event: 'packet', listener: (packet: Packet) => void): this;
-  on(event: 'PacketCorruption', listener: (err: AssertionError) => void): this;
-  on(event: 'PacketOutOfOrder', listener: (err: Error) => void): this;
-  on(event: 'error', listener: (err: Error) => void): this;
+// from Deno/std // unexported
+interface MulticastV4Membership {
+    /** Leaves the multicast group. */
+    leave: () => Promise<void>;
+    /** Sets the multicast loopback option. If enabled, multicast packets will be looped back to the local socket. */
+    setLoopback: (loopback: boolean) => Promise<void>;
+    /** Sets the time-to-live of outgoing multicast packets for this socket. */
+    setTTL: (ttl: number) => Promise<void>;
 }
 
-export class Receiver extends EventEmitter {
-  private socket: Socket;
+export interface sACNSource {
+    readonly cid: Uint8Array,
+    readonly label: string,
+    priority: number,
+}
 
-  private lastSequence: Record<string, number>;
+export class Receiver {
+    readonly socket: Deno.DatagramConn;
+    readonly options: ReceiverOptions;
+    readonly cleanupInterval: number;
+    constructor(options: Partial<ReceiverOptions> = {}) {
+        this.options = {
+            iface: "0.0.0.0",
+            port: 5568,
+            dmxAOnly: true,
+            ...options,
+        };
 
-  private readonly port: ReceiverProps['port'];
+        this.socket = Deno.listenDatagram({
+            transport: "udp",
+            port: this.options.port,
+            reuseAddress: true, // multiple receivers
+            loopback: true, // loopback multicast packets
+            hostname: this.options.iface,
+        });
 
-  public universes: NonNullable<ReceiverProps['universes']>;
+        // clear on dispose
+        this.cleanupInterval = setInterval(() => {
+            this.cleanupSources();
+        }, 5000);
+    }
 
-  private readonly iface: ReceiverProps['iface'];
+    // universe => MulticastMembership
+    private readonly multicast = new Map<number, MulticastV4Membership>();
 
-  constructor({
-    universes = [1],
-    port = 5568,
-    iface = undefined,
-    reuseAddr = false,
-  }: ReceiverProps) {
-    super();
-    this.universes = universes;
-    this.port = port;
-    this.iface = iface;
+    // returns true if successful, false if already listening to universe
+    public async addUniverse(universe: number): Promise<boolean> {
+        if (this.multicast.has(universe))
+            return false;
 
-    this.socket = createSocket({ type: 'udp4', reuseAddr });
-    this.lastSequence = {};
+        const membership: MulticastV4Membership = await this.socket.joinMulticastV4(multicastGroup(universe), this.options.iface);
+        this.multicast.set(universe, membership);
+        return true;
+    }
 
-    this.socket.on('message', (msg, rinfo) => {
-      try {
-        const packet = new Packet(msg, rinfo.address);
+    // returns true if successful, false if not listening to universe
+    public async removeUniverse(universe: number) {
+        if (!this.multicast.has(universe))
+            return false;
 
-        // somehow we received a packet for a universe we're not listening to
-        // silently drop this packet
-        if (!this.universes.includes(packet.universe)) return;
+        await this.multicast.get(universe)!.leave();
+        this.multicast.delete(universe);
+        return true;
+    }
 
-        // we keep track of the last sequence per sender and per universe (see #37)
-        const key = packet.cid.toString('utf8') + packet.universe;
+    // all currently active sources
+    readonly sources = new Set<sACNSource>();
 
-        const outOfOrder =
-          this.lastSequence[key] &&
-          Math.abs(this.lastSequence[key]! - packet.sequence) > 20;
+    // stores last packet of sources // performance.now()
+    private readonly sourceTimeout = new WeakMap<sACNSource, number>();
 
-        const oldSequence = this.lastSequence[key];
-        this.lastSequence[key] = packet.sequence === 255 ? -1 : packet.sequence;
+    // last sequence number
+    private readonly sequence = new WeakMap<sACNSource, Map<number, number>>();
 
-        if (outOfOrder) {
-          throw new Error(
-            `Packet significantly out of order in universe ${packet.universe} from ${packet.sourceName} (${oldSequence} -> ${packet.sequence})`,
-          );
+    // finds source by given cid
+    getSource(cid: Uint8Array): sACNSource | null {
+        for (const source of this.sources) {
+            if (bufferEqual(source.cid, cid))
+                return source;
         }
+        return null;
+    }
 
-        this.emit('packet', packet);
-      } catch (err) {
-        const event =
-          err instanceof AssertionError
-            ? 'PacketCorruption'
-            : 'PacketOutOfOrder';
-        this.emit(event, err);
-      }
-    });
-    this.socket.on('error', (ex) => this.emit('error', ex));
-    this.socket.bind(this.port, () => {
-      for (const uni of this.universes) {
-        try {
-          this.socket.addMembership(multicastGroup(uni), this.iface);
-        } catch (err) {
-          this.emit('error', err); // emit errors from socket.addMembership
+    // get bare packets // checks sequence
+    async *onPacket(): AsyncGenerator<Packet, void, void> {
+        for await (const [chunk] of this.socket) {
+            const packet = parsePacket(chunk);
+            const source: sACNSource = this.getSource(packet.cid) || {
+                cid: packet.cid,
+                label: packet.sourceLabel,
+                priority: packet.priority,
+            };
+            if (!this.sources.has(source))
+                this.sources.add(source);
+
+            this.sourceTimeout.set(source, performance.now());
+
+            if (!this.sequence.has(source))
+                this.sequence.set(source, new Map());
+
+            const lastSeq = this.sequence.get(source)!.get(packet.universe) || -1;
+
+            if (lastSeq !== -1) {
+                const diff = packet.sequence - lastSeq;
+
+                if (diff === 1 || diff === -255) {
+                    // fine
+                } else if (diff > 1 && diff < 5) {
+                    console.warn(`%c[sACN] [${source.label}] [U${packet.universe}] ${diff - 1} frame(s) dropped`, "color: orange");
+                } else {
+                    console.error(`%c[sACN] [${source.label}] [U${packet.universe}] frame significantly out of order (${lastSeq} -> ${packet.sequence})`, "color: red");
+                }
+            }
+
+            this.sequence.get(source)!.set(packet.universe, packet.sequence);
+
+            if (!this.options.dmxAOnly || packet.data[0] === 0) // only 0-start codes // no RDM...
+                yield packet;
         }
-      }
-    });
-  }
+    }
 
-  public addUniverse(universe: number): this {
-    // already listening to this one; do nothing
-    if (this.universes.includes(universe)) return this;
+    // removes all sources whose last packet was sent more than 5s ago
+    // called every 5s // interval setup in constructor
+    private cleanupSources() {
+        const clearPoint = performance.now() - 5000;
+        for (const source of this.sources) {
+            const lastTime = this.sourceTimeout.get(source);
+            if (lastTime && lastTime < clearPoint)
+                this.sources.delete(source);
+        }
+    }
 
-    this.socket.addMembership(multicastGroup(universe), this.iface);
-    this.universes.push(universe);
-    return this;
-  }
+    // sACNSource => (Universe => [Data, Priority])
+    private readonly lastSourceData = new WeakMap<sACNSource, Map<number, [Uint8Array, number]>>();
 
-  public removeUniverse(universe: number): this {
-    // not listening to this one; do nothing
-    if (!this.universes.includes(universe)) return this;
+    // Chan(global) => Value
+    private readonly lastChanData = new Map<number, number>();
 
-    this.socket.dropMembership(multicastGroup(universe), this.iface);
-    this.universes = this.universes.filter((n) => n !== universe);
-    return this;
-  }
+    // Merges Channels
+    // AsyncIterator<[Chan(glob), Value]>
+    async *[Symbol.asyncIterator](): AsyncIterator<readonly [number, number]> {
+        for await (const packet of this.onPacket()) {
+            const packetSource = this.getSource(packet.cid)!;
+            if (!this.lastSourceData.has(packetSource))
+                this.lastSourceData.set(packetSource, new Map());
 
-  public close(callback?: () => void): this {
-    this.socket.close(callback);
-    return this;
-  }
+            // store current packet
+            this.lastSourceData.get(packetSource)!.set(packet.universe, [packet.data, packet.priority]);
+
+            // groups sources by priority
+            // Priority => Set<Sources>
+            const sources = new Map<number, Set<sACNSource>>();
+
+            let highestPriority = -1;
+
+            for (const source of this.sources) {
+                const lastSourceData = this.lastSourceData.get(source)?.get(packet.universe);
+                if (lastSourceData) {
+                    const [, priority] = lastSourceData;
+                    if (priority < highestPriority)
+                        continue; // speed up
+
+                    if (!sources.has(priority))
+                        sources.set(priority, new Set());
+
+                    sources.get(priority)!.add(source);
+
+                    highestPriority = Math.max(highestPriority, priority);
+                }
+            }
+
+            // we only need the highest priority sources
+            const highPrioritySources = sources.get(highestPriority)!;
+
+            // get their data
+            const sourceData = [...highPrioritySources].map(source => this.lastSourceData.get(source)!.get(packet.universe)![0]);
+
+            // speed up addr to globalAddr conversion
+            const universeBase = (packet.universe - 1) * 512;
+
+            for (let i = 1; i < 513; i++) {
+                const globChan = universeBase + i;
+                let highest = 0;
+                for (const data of sourceData) {
+                    if (data[i] > highest) {
+                        highest = data[i];
+                    }
+                }
+                const old = this.lastChanData.get(globChan) ?? -1;
+                if (old !== highest) { // only update if changed
+                    this.lastChanData.set(globChan, highest);
+                    yield [globChan, highest] as const;
+                }
+            }
+        }
+    }
+
+    dispose() {
+        clearInterval(this.cleanupInterval);
+        this.socket.close();
+    }
+
+    [Symbol.dispose]() {
+        this.dispose();
+    }
 }
