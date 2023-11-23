@@ -17,21 +17,20 @@
 * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export function multicastGroup(universe: number): string {
-    if ((universe > 0 && universe < 64000)) {
-        return `239.255.${universe >> 8}.${universe & 0xFF}`;
-    }
-    throw new RangeError('universe must be between 1-63999');
-}
+import { assertEquals } from "https://deno.land/std@0.207.0/assert/mod.ts";
+import { dmxToGlobal, globalToDmx } from "./dmxAddr.ts";
 
-export function bufferEqual(a: Uint8Array, b: Uint8Array) {
-    if (a.byteLength != b.byteLength)
-        return false;
-
-    for (let i = 0; i < a.byteLength; i++) {
-        if (a[i] !== b[i])
-            return false;
-    }
-
-    return true;
-}
+Deno.test("dmx > global", () => {
+    assertEquals(dmxToGlobal(1, 1), 1);
+    assertEquals(dmxToGlobal(1, 512), 512);
+    assertEquals(dmxToGlobal(2, 1), 513);
+    assertEquals(dmxToGlobal(2, 512), 1024);
+    assertEquals(dmxToGlobal(3, 1), 1025);
+});
+Deno.test("global > dmx", () => {
+    assertEquals(globalToDmx(1), [1, 1]);
+    assertEquals(globalToDmx(512), [1, 512]);
+    assertEquals(globalToDmx(513), [2, 1]);
+    assertEquals(globalToDmx(1024), [2, 512]);
+    assertEquals(globalToDmx(1025), [3, 1]);
+});

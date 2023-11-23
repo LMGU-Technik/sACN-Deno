@@ -17,21 +17,9 @@
 * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export function multicastGroup(universe: number): string {
-    if ((universe > 0 && universe < 64000)) {
-        return `239.255.${universe >> 8}.${universe & 0xFF}`;
-    }
-    throw new RangeError('universe must be between 1-63999');
+export function dmxToGlobal(universe: number, addr: number) {
+    return (universe - 1) * 512 + addr;
 }
-
-export function bufferEqual(a: Uint8Array, b: Uint8Array) {
-    if (a.byteLength != b.byteLength)
-        return false;
-
-    for (let i = 0; i < a.byteLength; i++) {
-        if (a[i] !== b[i])
-            return false;
-    }
-
-    return true;
+export function globalToDmx(global: number): [universe: number, addr: number] {
+    return [Math.floor((global - 1) / 512) + 1, (global - 1) % 512 + 1];
 }

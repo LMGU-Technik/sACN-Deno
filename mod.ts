@@ -1,3 +1,5 @@
+/// <reference lib="deno.unstable" />
+
 /* 
 * LMGU-Technik sACN-Deno
 
@@ -17,21 +19,7 @@
 * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export function multicastGroup(universe: number): string {
-    if ((universe > 0 && universe < 64000)) {
-        return `239.255.${universe >> 8}.${universe & 0xFF}`;
-    }
-    throw new RangeError('universe must be between 1-63999');
-}
-
-export function bufferEqual(a: Uint8Array, b: Uint8Array) {
-    if (a.byteLength != b.byteLength)
-        return false;
-
-    for (let i = 0; i < a.byteLength; i++) {
-        if (a[i] !== b[i])
-            return false;
-    }
-
-    return true;
-}
+export type { ReceiverOptions } from "./src/receiver.ts";
+export { Receiver } from "./src/receiver.ts";
+export type { Packet } from "./src/packet.ts";
+export { dmxToGlobal, globalToDmx } from "./lib/dmxAddr.ts";
