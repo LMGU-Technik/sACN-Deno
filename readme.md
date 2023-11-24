@@ -24,13 +24,13 @@ import {...} from "https://deno.land/x/sacn/mod.ts"
 import { globalToDmx, Receiver } from "https://deno.land/x/sacn/mod.ts";
 
 const receiver = new Receiver({
-  // options
+    // options
 });
 await receiver.addUniverse(1);
 
 for await (const [chan, value] of receiver) {
-  const [univ, addr] = globalToDmx(chan);
-  console.log(`Chan ${univ}/${addr} = ${value}`);
+    const [univ, addr] = globalToDmx(chan);
+    console.log(`Chan ${univ}/${addr} = ${value}`);
 }
 ```
 
@@ -38,15 +38,15 @@ for await (const [chan, value] of receiver) {
 
 ```typescript
 interface ReceiverOptions {
-  // nearly every implementation uses this port
-  // defaults to 5568
-  readonly port: number;
-  // network interface to listen on
-  // defaults to all (0.0.0.0)
-  readonly iface: string;
-  // drop all non-zero start code packets
-  // defaults to true
-  readonly dmxAOnly: boolean;
+    // nearly every implementation uses this port
+    // defaults to 5568
+    readonly port: number;
+    // network interface to listen on
+    // defaults to all (0.0.0.0)
+    readonly iface: string;
+    // drop all non-zero start code packets
+    // defaults to true
+    readonly dmxAOnly: boolean;
 }
 ```
 
@@ -66,9 +66,9 @@ Used to obtain value changes
 
 ```typescript
 for await (const [chan, value] of receiver) {
-  // chan is a global address, this helper function can be used to split into universe and address
-  const [univ, addr] = globalToDmx(chan);
-  console.log(`Chan ${univ}/${addr} = ${value}`);
+    // chan is a global address, this helper function can be used to split into universe and address
+    const [univ, addr] = globalToDmx(chan);
+    console.log(`Chan ${univ}/${addr} = ${value}`);
 }
 ```
 
@@ -78,18 +78,18 @@ Advanced: Used to obtain bare packets
 
 ```typescript
 for await (const packet of receiver.onPacket()) {
-  // do stuff ...
+    // do stuff ...
 }
 ```
 
 ```typescript
 interface Packet {
-  cid: Uint8Array;
-  priority: number;
-  sequence: number;
-  universe: number;
-  data: Uint8Array;
-  sourceLabel: string;
+    cid: Uint8Array;
+    priority: number;
+    sequence: number;
+    universe: number;
+    data: Uint8Array;
+    sourceLabel: string;
 }
 ```
 

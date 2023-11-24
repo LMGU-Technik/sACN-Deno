@@ -1,4 +1,4 @@
-/* 
+/*
 * LMGU-Technik sACN-Deno
 
 * Copyright (C) 2023 Hans Schallmoser
@@ -21,16 +21,18 @@ export function multicastGroup(universe: number): string {
     if ((universe > 0 && universe < 64000)) {
         return `239.255.${universe >> 8}.${universe & 0xFF}`;
     }
-    throw new RangeError('universe must be between 1-63999');
+    throw new RangeError("universe must be between 1-63999");
 }
 
 export function bufferEqual(a: Uint8Array, b: Uint8Array) {
-    if (a.byteLength != b.byteLength)
+    if (a.byteLength != b.byteLength) {
         return false;
+    }
 
     for (let i = 0; i < a.byteLength; i++) {
-        if (a[i] !== b[i])
+        if (a[i] !== b[i]) {
             return false;
+        }
     }
 
     return true;

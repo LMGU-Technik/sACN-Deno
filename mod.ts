@@ -1,6 +1,6 @@
 /// <reference lib="deno.unstable" />
 
-/* 
+/*
 * LMGU-Technik sACN-Deno
 
 * Copyright (C) 2023 Hans Schallmoser

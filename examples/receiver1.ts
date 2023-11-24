@@ -1,4 +1,4 @@
-/* 
+/*
 * LMGU-Technik sACN-Deno
 
 * Copyright (C) 2023 Hans Schallmoser
@@ -29,6 +29,6 @@ async function main() {
         console.log(`Chan ${univ}/${addr} = ${value}`);
     }
 }
-main().catch(err => {
+main().catch((err) => {
     console.error(err);
 });
