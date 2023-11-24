@@ -73,13 +73,19 @@ export class Receiver {
     }
 
     // universe => MulticastMembership
-    private readonly multicast = new Map<number, MulticastV4Membership>();
+    private readonly multicast = new Map<
+        number,
+        MulticastV4Membership | null
+    >();
 
     // returns true if successful, false if already listening to universe
     public async addUniverse(universe: number): Promise<boolean> {
         if (this.multicast.has(universe)) {
             return false;
         }
+
+        // prevent race condition when calling multiple times parallel
+        this.multicast.set(universe, null);
 
         const membership: MulticastV4Membership = await this.socket
             .joinMulticastV4(
@@ -92,11 +98,16 @@ export class Receiver {
 
     // returns true if successful, false if not listening to universe
     public async removeUniverse(universe: number) {
-        if (!this.multicast.has(universe)) {
+        const membership = this.multicast.get(universe);
+
+        if (!membership) {
             return false;
         }
 
-        await this.multicast.get(universe)!.leave();
+        this.multicast.set(universe, null);
+
+        await membership!.leave();
+
         this.multicast.delete(universe);
         return true;
     }

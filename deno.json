@@ -1,6 +1,6 @@
 {
     "tasks": {
-        "test": "deno fmt && deno lint && deno check mod.ts && deno test"
+        "test": "deno fmt && deno lint && deno check mod.ts && deno test --allow-net --unstable"
     },
     "fmt": {
         "indentWidth": 4
