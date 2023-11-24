@@ -33,4 +33,4 @@ jobs:
         run: deno check mod.ts
 
       - name: Run tests
-        run: deno test
+        run: deno test --allow-new --unstable
