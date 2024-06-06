@@ -8,13 +8,22 @@ consoles (e.g. [ETC Eos](https://www.etcconnect.com/),
 This is a Deno.js port of https://github.com/k-yle/sACN, but it is NOT API
 compatible (especially events). Most parts are rewritten from ground up using
 modern APIs (ArrayBuffer, TypedArray, AsyncIterator, ...). Unlike k-yle/sACN
-this one natively supports merging channel priorities.
+this one natively supports merging multiple senders (HTP with Priorities).
 
 ## Install
 
 ```typescript
 import {...} from "https://deno.land/x/sacn/mod.ts"
 ```
+
+or
+
+[@deno-plc/sacn ![JSR](https://jsr.io/badges/@deno-plc/sacn)](https://jsr.io/@deno-plc/sacn)
+
+## Deno CLI flags
+
+- `--unstable-net`, because UDP support in Deno is still unstable.
+- `--allow-net`, this is a networking library ;-)
 
 ## Receiver API
 
@@ -37,15 +46,20 @@ for await (const [chan, value] of receiver) {
 ### `new Receiver(options: ReceiverOptions)`
 
 ```typescript
-interface ReceiverOptions {
-    // nearly every implementation uses this port
-    // defaults to 5568
+export interface ReceiverOptions {
+    /**
+     * @default 5568 // nearly every implementation uses this port
+     */
     readonly port: number;
-    // network interface to listen on
-    // defaults to all (0.0.0.0)
+    /**
+     * network interface to listen on,
+     * @default "0.0.0.0" // listen to all interfaces
+     */
     readonly iface: string;
-    // drop all non-zero start code packets
-    // defaults to true
+    /**
+     * drop all non-zero start code packets
+     * @default true
+     */
     readonly dmxAOnly: boolean;
 }
 ```
@@ -64,6 +78,8 @@ one.
 
 Used to obtain value changes
 
+Note: use only once
+
 ```typescript
 for await (const [chan, value] of receiver) {
     // chan is a global address, this helper function can be used to split into universe and address
@@ -75,6 +91,9 @@ for await (const [chan, value] of receiver) {
 ### `Receiver.onPacket(): AsyncGenerator<Packet>`
 
 Advanced: Used to obtain bare packets
+
+Note: use only once and not in conjunction with
+`Receiver.[Symbol.asyncIterator]()`
 
 ```typescript
 for await (const packet of receiver.onPacket()) {
@@ -124,7 +143,7 @@ the Entertainment Services and Technology Association (ESTA).
 
 ## License
 
-(c) 2023 Hans Schallmoser
+(c) 2023 - 2024 Hans Schallmoser
 
 Licensed under the terms of the GNU General public license (see LICENSE file)
 

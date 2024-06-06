@@ -17,7 +17,7 @@
 * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-export function dmxToGlobal(universe: number, addr: number) {
+export function dmxToGlobal(universe: number, addr: number): number {
     return (universe - 1) * 512 + addr;
 }
 export function globalToDmx(global: number): [universe: number, addr: number] {

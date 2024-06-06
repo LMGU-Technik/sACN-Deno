@@ -1,5 +1,3 @@
-/// <reference lib="deno.unstable" />
-
 /*
 * LMGU-Technik sACN-Deno
 

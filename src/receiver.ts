@@ -1,7 +1,7 @@
 /*
 * LMGU-Technik sACN-Deno
 
-* Copyright (C) 2023 Hans Schallmoser
+* Copyright (C) 2023 - 2024 Hans Schallmoser
 
 * This program is free software: you can redistribute it and/or modify
 * it under the terms of the GNU General Public License as published by
@@ -17,20 +17,33 @@
 * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { Packet, parsePacket } from "./packet.ts";
+import { type Packet, parsePacket } from "./packet.ts";
 import { multicastGroup } from "../lib/util.ts";
 import { bufferEqual } from "../lib/util.ts";
 
+/**
+ * Configure the receiver
+ */
 export interface ReceiverOptions {
-    // defaults to 5568
+    /**
+     * @default 5568 // nearly every implementation uses this port
+     */
     readonly port: number;
-    // network interface to listen on // defaults to all (0.0.0.0)
+    /**
+     * network interface to listen on,
+     * @default "0.0.0.0" // listen to all interfaces
+     */
     readonly iface: string;
-    // drop all non-zero start code packets // defaults to true
+    /**
+     * drop all non-zero start code packets
+     * @default true
+     */
     readonly dmxAOnly: boolean;
 }
 
-// from Deno/std // unexported
+/**
+ * from Deno/std, unexported
+ */
 interface MulticastV4Membership {
     /** Leaves the multicast group. */
     leave: () => Promise<void>;
@@ -40,12 +53,18 @@ interface MulticastV4Membership {
     setTTL: (ttl: number) => Promise<void>;
 }
 
+/**
+ * Represents one sACN source (e.g. a light console or control software)
+ */
 export interface sACNSource {
     readonly cid: Uint8Array;
     readonly label: string;
     priority: number;
 }
 
+/**
+ * sACN Receiver
+ */
 export class Receiver {
     readonly socket: Deno.DatagramConn;
     readonly options: ReceiverOptions;
@@ -78,7 +97,9 @@ export class Receiver {
         MulticastV4Membership | null
     >();
 
-    // returns true if successful, false if already listening to universe
+    /**
+     * returns true if successful, false if already listening to universe
+     */
     public async addUniverse(universe: number): Promise<boolean> {
         if (this.multicast.has(universe)) {
             return false;
@@ -96,8 +117,10 @@ export class Receiver {
         return true;
     }
 
-    // returns true if successful, false if not listening to universe
-    public async removeUniverse(universe: number) {
+    /**
+     * returns true if successful, false if not listening to universe
+     */
+    public async removeUniverse(universe: number): Promise<boolean> {
         const membership = this.multicast.get(universe);
 
         if (!membership) {
@@ -112,16 +135,25 @@ export class Receiver {
         return true;
     }
 
-    // all currently active sources
-    readonly sources = new Set<sACNSource>();
+    /**
+     * all currently active sources
+     */
+    readonly sources: Set<sACNSource> = new Set<sACNSource>();
 
-    // stores last packet of sources // performance.now()
+    /**
+     * stores last packet of sources as performance.now() timestamp
+     */
     private readonly sourceTimeout = new WeakMap<sACNSource, number>();
 
-    // last sequence number
+    /**
+     * last sequence number for each source and universe
+     * Map<Source, Map<Universe, Sequence>>
+     */
     private readonly sequence = new WeakMap<sACNSource, Map<number, number>>();
 
-    // finds source by given cid
+    /**
+     * Source by CID
+     */
     getSource(cid: Uint8Array): sACNSource | null {
         for (const source of this.sources) {
             if (bufferEqual(source.cid, cid)) {
@@ -131,7 +163,10 @@ export class Receiver {
         return null;
     }
 
-    // get bare packets // checks sequence
+    /**
+     * get bare packets, checks sequence
+     * USE ONLY ONCE AND NOT IN CONJUNCTION WITH `Receiver.[Symbol.asyncIterator]()`
+     */
     async *onPacket(): AsyncGenerator<Packet, void, void> {
         for await (const [chunk] of this.socket) {
             const packet = parsePacket(chunk);
@@ -181,8 +216,10 @@ export class Receiver {
         }
     }
 
-    // removes all sources whose last packet was sent more than 5s ago
-    // called every 5s // interval setup in constructor
+    /**
+     * removes all sources whose last packet was sent more than 5s ago,
+     * called every 5s (interval setup in constructor)
+     */
     private cleanupSources() {
         const clearPoint = performance.now() - 5000;
         for (const source of this.sources) {
@@ -193,17 +230,24 @@ export class Receiver {
         }
     }
 
-    // sACNSource => (Universe => [Data, Priority])
+    /**
+     * sACNSource => (Universe => [Data, Priority])
+     */
     private readonly lastSourceData = new WeakMap<
         sACNSource,
         Map<number, [Uint8Array, number]>
     >();
 
-    // Chan(global) => Value
+    /**
+     * Chan(global) => Value
+     */
     private readonly lastChanData = new Map<number, number>();
 
-    // Merges Channels
-    // AsyncIterator<[Chan(glob), Value]>
+    /**
+     * Merges Channels
+     * AsyncIterator<[Chan(glob), Value]>
+     * Only use once!!
+     */
     async *[Symbol.asyncIterator](): AsyncIterator<readonly [number, number]> {
         for await (const packet of this.onPacket()) {
             const packetSource = this.getSource(packet.cid)!;
@@ -271,11 +315,17 @@ export class Receiver {
         }
     }
 
+    /**
+     * cleanup
+     */
     dispose() {
         clearInterval(this.cleanupInterval);
         this.socket.close();
     }
 
+    /**
+     * alias to .dispose(), needed for `using` keyword
+     */
     [Symbol.dispose]() {
         this.dispose();
     }
