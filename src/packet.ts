@@ -19,6 +19,8 @@
 
 import { ACN_PID, DmpVector, FrameVector, RootVector } from "./constants.ts";
 
+export type Payload = { [channel: number]: number };
+
 export interface Packet {
     cid: Uint8Array;
     priority: number;
@@ -26,6 +28,18 @@ export interface Packet {
     universe: number;
     data: Uint8Array;
     sourceLabel: string;
+    payload?: Payload;
+    useRawDmxValues?: boolean;
+}
+
+export interface Options {
+  universe: Packet['universe'];
+  data: Packet['data'];
+  sequence: Packet['sequence'];
+  sourceLabel: Packet['sourceLabel'];
+  priority: Packet['priority'];
+  cid: Packet['cid'];
+  useRawDmxValues: Packet['useRawDmxValues'];
 }
 
 export class PacketError extends Error {
