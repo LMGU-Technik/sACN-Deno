@@ -17,7 +17,7 @@
 * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
-import { assertEquals } from "https://deno.land/std@0.207.0/assert/mod.ts";
+import { assertEquals } from "@std/assert/equals";
 import { buildFlagsAndLength } from "./packet.ts";
 
 Deno.test("Flags & Length", () => {

@@ -28,18 +28,15 @@ export interface Packet {
     universe: number;
     data: Uint8Array;
     sourceLabel: string;
-    payload?: Payload;
-    useRawDmxValues?: boolean;
 }
 
 export interface Options {
-  universe: Packet['universe'];
-  data: Packet['data'];
-  sequence: Packet['sequence'];
-  sourceLabel: Packet['sourceLabel'];
-  priority: Packet['priority'];
-  cid: Packet['cid'];
-  useRawDmxValues: Packet['useRawDmxValues'];
+    universe: Packet["universe"];
+    data: Packet["data"];
+    sequence: Packet["sequence"];
+    sourceLabel: Packet["sourceLabel"];
+    priority: Packet["priority"];
+    cid: Packet["cid"];
 }
 
 export class PacketError extends Error {

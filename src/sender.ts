@@ -1,4 +1,5 @@
 import { multicastGroup } from "../lib/util.ts";
+import { DEFAULT_CID } from "./constants.ts";
 import { buildPacket, type Options } from "./packet.ts";
 
 export interface SenderOptions {
@@ -8,7 +9,7 @@ export interface SenderOptions {
      * The multicast port to use. All professional consoles broadcast to the default port.
      * @default 5568
      */
-    port: number;
+    port?: number;
     /**
      * Allow multiple programs on your computer to send to the same sACN universe.
      * @default false
@@ -27,8 +28,8 @@ export interface SenderOptions {
 
     /** some options can be sepecified when you instantiate the sender, instead of sepecifying them on every packet */
     defaultPacketOptions?: Pick<
-      Options,
-      'cid' | 'sourceLabel' | 'priority' | 'useRawDmxValues'
+        Options,
+        "cid" | "sourceLabel" | "priority"
     >;
 
     // IPv4 address of the network interface
@@ -43,26 +44,14 @@ export interface SenderOptions {
     useUnicastDestination?: string;
 }
 
-/**
- * from Deno/std, unexported
- */
-interface MulticastV4Membership {
-    /** Leaves the multicast group. */
-    leave: () => Promise<void>;
-    /** Sets the multicast loopback option. If enabled, multicast packets will be looped back to the local socket. */
-    setLoopback: (loopback: boolean) => Promise<void>;
-    /** Sets the time-to-live of outgoing multicast packets for this socket. */
-    setTTL: (ttl: number) => Promise<void>;
-}
-
 export class Sender {
     private socket: Deno.DatagramConn;
     readonly options: SenderOptions;
 
-    private readonly multicast = new Map<
-        number,
-        MulticastV4Membership | null
-    >();
+    // private readonly multicast = new Map<
+    //     number,
+    //     MulticastV4Membership | null
+    // >();
 
     private sequence = 0;
 
@@ -81,97 +70,59 @@ export class Sender {
      * send it regulally if `refreshRate` != 0. `undefined` if nothing has been
      * sent yet.
      */
-    #latestPacketOptions: Omit<Options, 'sequence' | 'universe'> | undefined;
+    // #latestPacketOptions: Omit<Options, 'sequence' | 'universe'> | undefined;
+
+    #defaultPacketOptions: Pick<
+        Options,
+        "cid" | "sourceLabel" | "priority"
+    >;
 
     constructor(options: SenderOptions) {
-        this.options = options
-  
-        this.#destinationIp = options.useUnicastDestination || multicastGroup(options.universe);
+        this.options = options;
+
+        this.#destinationIp = options.useUnicastDestination ||
+            multicastGroup(options.universe);
+
+        this.#defaultPacketOptions = {
+            cid: DEFAULT_CID,
+            sourceLabel: "sACN-Deno",
+            priority: 100,
+            ...options.defaultPacketOptions,
+        };
 
         this.socket = Deno.listenDatagram({
             transport: "udp",
-            port: this.options.port,
-            reuseAddress: true, // multiple receivers
+            port: this.options.port ?? 5568,
+            reuseAddress: true,
             loopback: true, // loopback multicast packets
             hostname: this.options.iface,
         });
-
-        if (options.minRefreshRate) {
-            this.#loopId = setInterval(() => this.reSend(), 1000 / options.minRefreshRate);
-        }
     }
 
-    /**
-     * returns true if successful, false if already listening to universe
-     */
-    public async addUniverse(universe: number): Promise<boolean> {
-        if (this.multicast.has(universe)) {
-            return false;
-        }
-
-        // prevent race condition when calling multiple times parallel
-        this.multicast.set(universe, null);
-
-        const membership: MulticastV4Membership = await this.socket
-            .joinMulticastV4(
-                multicastGroup(universe),
-                this.options.iface,
-            );
-        this.multicast.set(universe, membership);
-        return true;
-    }
-
-    /**
-     * returns true if successful, false if not listening to universe
-     */
-    public async removeUniverse(universe: number): Promise<boolean> {
-        const membership = this.multicast.get(universe);
-
-        if (!membership) {
-            return false;
-        }
-
-        this.multicast.set(universe, null);
-
-        await membership!.leave();
-
-        this.multicast.delete(universe);
-        return true;
-    }
-
-    public send(packet: Omit<Options, 'sequence' | 'universe'>): Promise<number> {
-        const finalPacket = { ...this.options.defaultPacketOptions, ...packet };
-        this.#latestPacketOptions = finalPacket;
-        const array = buildPacket({
-            ...finalPacket,
+    public send(data: Uint8Array) {
+        const packet = buildPacket({
+            ...this.#defaultPacketOptions,
+            data,
             universe: this.options.universe,
-            sequence: this.sequence
+            sequence: this.sequence,
         });
         this.sequence = (this.sequence + 1) % 256;
-        return this.socket.send(array, {hostname:(this.#destinationIp),port:(this.options.port),transport:"udp"});
-    }
-
-    private reSend() {
-        if (this.#latestPacketOptions) {
-            this.send(this.#latestPacketOptions)
-                .then(() => {
-                    this.updateResendStatus(true);
-                })
-                .catch(() => {
-                    this.updateResendStatus(false);
-                });
+        if (this.#loopId) clearTimeout(this.#loopId);
+        if (this.options.minRefreshRate) {
+            this.#loopId = setTimeout(() => {
+                this.send(data);
+            }, 1000 / this.options.minRefreshRate);
         }
+        console.log(packet);
+        this.socket.send(packet, {
+            hostname: this.#destinationIp,
+            port: this.options.port ?? 5568,
+            transport: "udp",
+        });
     }
 
-    private updateResendStatus(success: boolean) {
-        if (success !== this.resendStatus) {
-            this.resendStatus = success;
-        }
-    }
-
-    public close(): this {
-        // if (this.#loopId) clearTimeout(this.#loopId);
+    public close() {
+        if (this.#loopId) clearTimeout(this.#loopId);
         this.socket.close();
-        return this;
     }
 }
