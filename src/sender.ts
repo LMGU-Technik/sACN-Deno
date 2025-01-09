@@ -68,11 +68,6 @@ export class Sender {
     private socket: Deno.DatagramConn;
     readonly options: SenderOptions;
 
-    // private readonly multicast = new Map<
-    //     number,
-    //     MulticastV4Membership | null
-    // >();
-
     private sequence = 0;
 
     /**
@@ -84,13 +79,6 @@ export class Sender {
     public resendStatus = false;
 
     #loopId: number | undefined;
-
-    /**
-     * we keep track of the most recent value of every channel, so that we can
-     * send it regulally if `refreshRate` != 0. `undefined` if nothing has been
-     * sent yet.
-     */
-    // #latestPacketOptions: Omit<Options, 'sequence' | 'universe'> | undefined;
 
     #defaultPacketOptions: Pick<
         Options,
@@ -119,6 +107,9 @@ export class Sender {
         });
     }
 
+    /**
+     * The first byte of the data must be 0 or it will be disregarded by the receiver.
+     */
     public send(data: Uint8Array) {
         const packet = buildPacket({
             ...this.#defaultPacketOptions,
@@ -143,5 +134,9 @@ export class Sender {
     public close() {
         if (this.#loopId) clearTimeout(this.#loopId);
         this.socket.close();
+    }
+
+    [Symbol.dispose]() {
+        this.close();
     }
 }
