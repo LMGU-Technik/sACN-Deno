@@ -143,7 +143,8 @@ the Entertainment Services and Technology Association (ESTA).
 
 ## License
 
-(c) 2023 - 2024 Hans Schallmoser
+- (c) 2023 - 2025 Hans Schallmoser
+- (c) 2025 Felix Beckh
 
 Licensed under the terms of the GNU General public license (see LICENSE file)
 
