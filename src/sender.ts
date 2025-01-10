@@ -47,9 +47,8 @@ export interface SenderOptions {
     minRefreshRate?: number;
 
     /** some options can be sepecified when you instantiate the sender, instead of sepecifying them on every packet */
-    defaultPacketOptions?: Pick<
-        Options,
-        "cid" | "sourceLabel" | "priority"
+    defaultPacketOptions?: Partial<
+        Pick<Options, "cid" | "sourceLabel" | "priority">
     >;
 
     // IPv4 address of the network interface
