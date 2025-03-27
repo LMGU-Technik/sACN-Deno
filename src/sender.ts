@@ -63,6 +63,9 @@ export interface SenderOptions {
     useUnicastDestination?: string;
 }
 
+/**
+ * A class to send sACN data to a universe.
+ */
 export class Sender {
     private socket: Deno.DatagramConn;
     readonly options: SenderOptions;

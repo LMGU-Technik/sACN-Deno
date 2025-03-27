@@ -119,7 +119,7 @@ Frees up resources. Supports
 
 ## Sender API
 
-> Coming soon. Contributions welcome.
+Unstable - No API docs yet!
 
 ## Network Requirements
 
