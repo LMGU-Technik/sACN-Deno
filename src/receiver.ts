@@ -202,6 +202,8 @@ export class Receiver {
                             } frame(s) dropped`,
                             "color: orange",
                         );
+                    } else if (diff === 0) {
+                        // duplicate
                     } else {
                         console.error(
                             `%c[sACN] [${source.label}] [U${packet.universe}] frame significantly out of order (${lastSeq} -> ${packet.sequence})`,

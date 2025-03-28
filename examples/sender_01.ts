@@ -22,9 +22,13 @@ import { Sender } from "../src/sender.ts";
 function main() {
     const sender = new Sender({
         universe: 1,
-        iface: "172.19.0.1",
+        iface: "0.0.0.0",
 
         minRefreshRate: 5,
+
+        defaultPacketOptions: {
+            priority: 105,
+        },
     });
 
     const data = new Uint8Array(513);

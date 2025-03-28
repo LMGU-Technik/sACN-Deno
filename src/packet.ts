@@ -99,7 +99,8 @@ export function parsePacket(packet: Uint8Array): Packet {
     constantField(dv.getUint16(119), 0x0000, "First prop offset");
     constantField(dv.getUint16(121), 0x0001, "Data size");
     const valueCount = dv.getUint16(123);
-    const data = new Uint8Array(packet.buffer, 125, valueCount);
+    // const data = new Uint8Array(packet.buffer, 125, valueCount);
+    const data = packet.slice(125, 125 + valueCount);
 
     return {
         cid,

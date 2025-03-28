@@ -19,5 +19,9 @@
 
 export type { ReceiverOptions } from "./src/receiver.ts";
 export { Receiver } from "./src/receiver.ts";
+
+export type { SenderOptions } from "./src/sender.ts";
+export { Sender } from "./src/sender.ts";
+
 export type { Packet } from "./src/packet.ts";
 export { dmxToGlobal, globalToDmx } from "./lib/dmxAddr.ts";
