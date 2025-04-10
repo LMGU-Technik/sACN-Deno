@@ -1,21 +1,21 @@
-/*
-* LMGU-Technik sACN-Deno
-
-* Copyright (C) 2023 - 2024 Hans Schallmoser
-
-* This program is free software: you can redistribute it and/or modify
-* it under the terms of the GNU General Public License as published by
-* the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-
-* You should have received a copy of the GNU General Public License
-* along with this program.  If not, see <https://www.gnu.org/licenses/>.
-*/
+/**
+ * @license GPL-3.0-or-later
+ * LMGU-Technik sACN-Deno
+ *
+ * Copyright (C) 2023 - 2025 Hans Schallmoser
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 
 import { type Packet, parsePacket } from "./packet.ts";
 import { multicastGroup } from "../lib/util.ts";
@@ -169,49 +169,59 @@ export class Receiver {
      */
     async *onPacket(): AsyncGenerator<Packet, void, void> {
         for await (const [chunk] of this.socket) {
-            const packet = parsePacket(chunk);
-            const source: sACNSource = this.getSource(packet.cid) || {
-                cid: packet.cid,
-                label: packet.sourceLabel,
-                priority: packet.priority,
-            };
-            if (!this.sources.has(source)) {
-                this.sources.add(source);
-            }
-
-            this.sourceTimeout.set(source, performance.now());
-
-            if (!this.sequence.has(source)) {
-                this.sequence.set(source, new Map());
-            }
-
-            const lastSeq = this.sequence.get(source)!.get(packet.universe) ||
-                -1;
-
-            if (lastSeq !== -1) {
-                const diff = packet.sequence - lastSeq;
-
-                if (diff === 1 || diff === -255) {
-                    // fine
-                } else if (diff > 1 && diff < 5) {
-                    console.warn(
-                        `%c[sACN] [${source.label}] [U${packet.universe}] ${
-                            diff - 1
-                        } frame(s) dropped`,
-                        "color: orange",
-                    );
-                } else {
-                    console.error(
-                        `%c[sACN] [${source.label}] [U${packet.universe}] frame significantly out of order (${lastSeq} -> ${packet.sequence})`,
-                        "color: red",
-                    );
+            try {
+                const packet = parsePacket(chunk);
+                const source: sACNSource = this.getSource(packet.cid) || {
+                    cid: packet.cid,
+                    label: packet.sourceLabel,
+                    priority: packet.priority,
+                };
+                if (!this.sources.has(source)) {
+                    this.sources.add(source);
                 }
-            }
 
-            this.sequence.get(source)!.set(packet.universe, packet.sequence);
+                this.sourceTimeout.set(source, performance.now());
 
-            if (!this.options.dmxAOnly || packet.data[0] === 0) { // only 0-start codes // no RDM...
-                yield packet;
+                if (!this.sequence.has(source)) {
+                    this.sequence.set(source, new Map());
+                }
+
+                const lastSeq =
+                    this.sequence.get(source)!.get(packet.universe) ||
+                    -1;
+
+                if (lastSeq !== -1) {
+                    const diff = packet.sequence - lastSeq;
+
+                    if (diff === 1 || diff === -255) {
+                        // fine
+                    } else if (diff > 1 && diff < 5) {
+                        console.warn(
+                            `%c[sACN] [${source.label}] [U${packet.universe}] ${
+                                diff - 1
+                            } frame(s) dropped`,
+                            "color: orange",
+                        );
+                    } else if (diff === 0) {
+                        // duplicate
+                    } else {
+                        console.error(
+                            `%c[sACN] [${source.label}] [U${packet.universe}] frame significantly out of order (${lastSeq} -> ${packet.sequence})`,
+                            "color: red",
+                        );
+                    }
+                }
+
+                this.sequence.get(source)!.set(
+                    packet.universe,
+                    packet.sequence,
+                );
+
+                if (!this.options.dmxAOnly || packet.data[0] === 0) { // only 0-start codes // no RDM...
+                    yield packet;
+                }
+            } catch (e) {
+                console.error(`[sACN] ${e}`);
             }
         }
     }

@@ -1,6 +1,6 @@
 {
     "name": "@deno-plc/sacn",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "exports": "./mod.ts",
     "fmt": {
         "indentWidth": 4
@@ -11,5 +11,8 @@
     },
     "unstable": [
         "net"
-    ]
+    ],
+    "imports": {
+        "@std/assert": "jsr:@std/assert@^1.0.10"
+    }
 }

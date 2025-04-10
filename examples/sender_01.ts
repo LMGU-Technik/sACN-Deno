@@ -2,7 +2,7 @@
  * @license GPL-3.0-or-later
  * LMGU-Technik sACN-Deno
  *
- * Copyright (C) 2023 Hans Schallmoser
+ * Copyright (C) 2025 Hans Schallmoser
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,11 +17,26 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-export type { ReceiverOptions } from "./src/receiver.ts";
-export { Receiver } from "./src/receiver.ts";
+import { Sender } from "../src/sender.ts";
 
-export type { SenderOptions } from "./src/sender.ts";
-export { Sender } from "./src/sender.ts";
+function main() {
+    const sender = new Sender({
+        universe: 1,
+        iface: "0.0.0.0",
 
-export type { Packet } from "./src/packet.ts";
-export { dmxToGlobal, globalToDmx } from "./lib/dmxAddr.ts";
+        minRefreshRate: 5,
+
+        defaultPacketOptions: {
+            priority: 105,
+        },
+    });
+
+    const data = new Uint8Array(513);
+
+    crypto.getRandomValues(data);
+
+    data[0] = 0x00;
+
+    sender.send(data);
+}
+main();
