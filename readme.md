@@ -12,12 +12,6 @@ this one natively supports merging multiple senders (HTP with Priorities).
 
 ## Install
 
-```typescript
-import {...} from "https://deno.land/x/sacn/mod.ts"
-```
-
-or
-
 [@deno-plc/sacn ![JSR](https://jsr.io/badges/@deno-plc/sacn)](https://jsr.io/@deno-plc/sacn)
 
 ## Deno CLI flags
