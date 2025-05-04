@@ -308,6 +308,8 @@ export class Receiver {
             // speed up addr to globalAddr conversion
             const universeBase = (packet.universe - 1) * 512;
 
+            let changed = false;
+
             for (let i = 1; i < 513; i++) {
                 const globChan = universeBase + i;
                 let highest = 0;
@@ -319,10 +321,13 @@ export class Receiver {
                 const old = this.lastChanData.get(globChan) ?? -1;
                 if (old !== highest) { // only update if changed
                     this.lastChanData.set(globChan, highest);
+
+                    changed = true;
                 }
             }
 
-            yield this.lastChanData as ReadonlyMap<number, number>;
+            if (changed)
+                yield new Map(this.lastChanData) as ReadonlyMap<number, number>;
         }
     }
 
@@ -332,10 +337,18 @@ export class Receiver {
      * Only use once and not in conjunction with `Receiver.onChanData()`
      */
     async *[Symbol.asyncIterator](): AsyncIterator<readonly [number, number]> {
+        let lastData: ReadonlyMap<number, number> | null = null;
+
         for await (const data of this.onChanData()) {
             for (const [chan, value] of data) {
+                if (lastData && lastData.get(chan) === value) {
+                    continue; // no change
+                }
+
                 yield [chan, value];
             }
+
+            lastData = data;
         }
     }
 
