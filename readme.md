@@ -72,7 +72,7 @@ one.
 
 Used to obtain value changes
 
-Note: use only once
+Note: use only once and not in conjunction with `Receiver.onChanData()`
 
 ```typescript
 for await (const [chan, value] of receiver) {
@@ -82,12 +82,28 @@ for await (const [chan, value] of receiver) {
 }
 ```
 
+### `Receiver.onChanData(): AsyncGenerator<ReadonlyMap<number, number>>`
+
+Used to obtain value changes as whole packets
+
+Note: use only once and not in conjunction with `Receiver.[Symbol.asyncIterator]()`
+
+```typescript
+for await (const data of receiver) {
+    for (const [chan, value] of data.entries()) {
+        // chan is a global address, this helper function can be used to split into universe and address
+        const [univ, addr] = globalToDmx(chan);
+        console.log(`Chan ${univ}/${addr} = ${value}`);
+    }
+}
+```
+
 ### `Receiver.onPacket(): AsyncGenerator<Packet>`
 
 Advanced: Used to obtain bare packets
 
 Note: use only once and not in conjunction with
-`Receiver.[Symbol.asyncIterator]()`
+`Receiver.[Symbol.asyncIterator]()` or `Receiver.onChanData()`
 
 ```typescript
 for await (const packet of receiver.onPacket()) {
