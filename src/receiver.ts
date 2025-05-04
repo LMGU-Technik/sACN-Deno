@@ -255,10 +255,10 @@ export class Receiver {
 
     /**
      * Merges Channels
-     * AsyncIterator<[Chan(glob), Value]>
-     * Only use once!!
+     * AsyncIterator<ReadonlyMap<Chan(glob), Value>>
+     * Only use once and not in conjunction with `Receiver.[Symbol.asyncIterator]`
      */
-    async *[Symbol.asyncIterator](): AsyncIterator<readonly [number, number]> {
+    async *onChanData(): AsyncGenerator<ReadonlyMap<number, number>> {
         for await (const packet of this.onPacket()) {
             const packetSource = this.getSource(packet.cid)!;
             if (!this.lastSourceData.has(packetSource)) {
@@ -319,8 +319,22 @@ export class Receiver {
                 const old = this.lastChanData.get(globChan) ?? -1;
                 if (old !== highest) { // only update if changed
                     this.lastChanData.set(globChan, highest);
-                    yield [globChan, highest] as const;
                 }
+            }
+
+            yield this.lastChanData as ReadonlyMap<number, number>;
+        }
+    }
+
+    /**
+     * Merges Channels
+     * AsyncIterator<[Chan(glob), Value]>
+     * Only use once and not in conjunction with `Receiver.onChanData()`
+     */
+    async *[Symbol.asyncIterator](): AsyncIterator<readonly [number, number]> {
+        for await (const data of this.onChanData()) {
+            for (const [chan, value] of data) {
+                yield [chan, value];
             }
         }
     }
