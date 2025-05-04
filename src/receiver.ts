@@ -254,8 +254,8 @@ export class Receiver {
     private readonly lastChanData = new Map<number, number>();
 
     /**
-     * Merges Channels
-     * AsyncIterator<ReadonlyMap<Chan(glob), Value>>
+     * Merges Channels and returns all channels as ReadonlyMap
+     * AsyncIterator<ReadonlyMap<number, number>>
      * Only use once and not in conjunction with `Receiver.[Symbol.asyncIterator]`
      */
     async *onChanData(): AsyncGenerator<ReadonlyMap<number, number>> {
