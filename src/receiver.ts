@@ -42,18 +42,6 @@ export interface ReceiverOptions {
 }
 
 /**
- * from Deno/std, unexported
- */
-interface MulticastV4Membership {
-    /** Leaves the multicast group. */
-    leave: () => Promise<void>;
-    /** Sets the multicast loopback option. If enabled, multicast packets will be looped back to the local socket. */
-    setLoopback: (loopback: boolean) => Promise<void>;
-    /** Sets the time-to-live of outgoing multicast packets for this socket. */
-    setTTL: (ttl: number) => Promise<void>;
-}
-
-/**
  * Represents one sACN source (e.g. a light console or control software)
  */
 export interface sACNSource {
@@ -94,7 +82,7 @@ export class Receiver {
     // universe => MulticastMembership
     private readonly multicast = new Map<
         number,
-        MulticastV4Membership | null
+        Deno.MulticastV4Membership | null
     >();
 
     /**
@@ -108,7 +96,7 @@ export class Receiver {
         // prevent race condition when calling multiple times parallel
         this.multicast.set(universe, null);
 
-        const membership: MulticastV4Membership = await this.socket
+        const membership: Deno.MulticastV4Membership = await this.socket
             .joinMulticastV4(
                 multicastGroup(universe),
                 this.options.iface,
